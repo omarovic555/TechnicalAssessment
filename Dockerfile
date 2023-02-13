@@ -1,3 +1,8 @@
+
+
+
+
+
 FROM python:latest
 
 # Set the working directory in the container
@@ -12,8 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the application code to the container
 COPY . .
 
-# Expose port 8000 for the application to listen on
-EXPOSE 8000
-
+EXPOSE 8008
+EXPOSE 5432
 # Specify the command to run when the container starts
-CMD ["uvicorn", "ScrappingService:router", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "SaveScrappingResultService:router", "--host", "0.0.0.0", "--port", "8008"]

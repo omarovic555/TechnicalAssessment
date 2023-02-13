@@ -1,2 +1,4 @@
 fastapi[all]
 facebook_scraper
+psycopg2
+
