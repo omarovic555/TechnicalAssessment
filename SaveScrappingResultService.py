@@ -1,139 +1,82 @@
 import unittest
-import psycopg2
-from facebook_scraper import get_posts 
+import sqlite3
+from facebook_scraper import get_posts
 from fastapi import FastAPI
 import uvicorn
 
+router = FastAPI()
 
-router  = FastAPI()
-@router.get("/")  
-async def root(): 
- def create_database(conn):
+def create_database(conn):
     try:
-        conn.autocommit = True
         cur = conn.cursor()
-        cur.execute("CREATE DATABASE facebookscrapeddata")
-        print("Database created successfully")
-    except psycopg2.errors.DuplicateDatabase:
-        print("Database already exists")
+        cur.execute("CREATE TABLE IF NOT EXISTS facebookdata (id INTEGER PRIMARY KEY, text TEXT, time DATE, likes INTEGER, shares INTEGER, comments INTEGER)")
+        print("Table created successfully")
+    except sqlite3.Error as error:
+        print("Error while creating table", error)
     finally:
         cur.close()
-    #    conn.close()
 
- def connect_to_database(conn):
+def connect_to_database(conn):
     try:
-        conn = psycopg2.connect(
-            host="localhost",
-            database="facebookscrapeddata",
-            user="postgres",
-            password="5555"
-        )
+        conn = sqlite3.connect("facebookscrapeddata.db")
         print("Connected to database successfully")
-    except (Exception, psycopg2.Error) as error:
+    except sqlite3.Error as error:
         print("Error while connecting to database", error)
     return conn
 
- def create_table(conn):
+def save_data(conn):
     try:
         cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE facebookdata (
-                id serial PRIMARY KEY,
-                text TEXT,
-                time Date ,
-                likes INTEGER,
-                shares Integer ,
-                comments Integer 
-                
-            )
-        """)
-        print("Table created successfully")
-    except psycopg2.errors.DuplicateTable:
-        print("Table already exists")
+        for post in get_posts("GuinnessWorldRecords", pages=3):
+            text = post['text']
+            time = post['time']
+            likes = post['likes']
+            shares = post['shares']
+            comments = post['comments']
+            cur.execute("INSERT INTO facebookdata (text, time, likes, shares, comments) VALUES (?, ?, ?, ?, ?)", (text, time, likes, shares, comments))
+        print("Data saved successfully")
+        # Execute the SELECT query
+        cur.execute("SELECT * FROM facebookdata")
+
+# Fetch all rows
+        rows = cur.fetchall()
+
+# Loop through the rows and print them
+        for row in rows:
+         print(row)
+
+    except sqlite3.Error as error:
+        print("Error while saving data", error)
     finally:
         cur.close()
-        conn.commit()
 
- conn = psycopg2.connect(
-    host="localhost",
-    database="postgres",
-    user="postgres",
-    password="5555"
- )
- def SaveData():
-  try:
-    for post in get_posts('GuinnessWorldRecords', pages=3):
-   
-     text = post['text']
-   
-     time=post['time']
-   
-     likes=post['likes']
-   
-     shares=post['shares']
-   
-     comments=post['comments']
-     cur = conn.cursor()
-     cur.execute("INSERT INTO facebookdata (text, time,likes,shares,comments) VALUES (%s, %s, %s, %s, %s)", (text, time, likes, shares, comments))
+@router.get("/")
+def root():
+    conn = sqlite3.connect("facebookscrapeddata.db")
+    create_database(conn)
+    conn = connect_to_database(conn)
+    save_data(conn)
+    conn.close()
 
-    # Commit the changes to the database
-     conn.commit()
-     print("row inserted successfully")
-  except: 
-     print("row not inserted successfully")
-  finally:
-   # Close the cursor and connection
-     cur.close()
- 
- create_database(conn)
- conn = connect_to_database(conn)
- create_table(conn)
- SaveData()
-
-#conn.close()
- class TestDatabaseFunctions(unittest.TestCase):
-  def test_create_database(self):
-        conn = psycopg2.connect(
-            host="localhost",
-            database="postgres",
-            user="postgres",
-            password="5555"
-        )
+class TestDatabaseFunctions(unittest.TestCase):
+    def test_create_database(self):
+        conn = sqlite3.connect("facebookscrapeddata.db")
         create_database(conn)
         cur = conn.cursor()
-        cur.execute("SELECT datname FROM pg_database")
-        databases = cur.fetchall()
-        self.assertIn(('facebookscrapeddata',), databases)
-        cur.close()
-        conn.close()
-
-  def test_connect_to_database(self):
-        connect_to_database(conn)
-        self.assertIsNotNone(conn)
-
-  def test_create_table(self):
-        conn = psycopg2.connect(
-            host="localhost",
-            database="facebookscrapeddata",
-            user="postgres",
-            password="5555"
-        )
-        create_table(conn)
-        cur = conn.cursor()
-        cur.execute("SELECT relname FROM pg_class WHERE relkind='r' AND relname='facebookdata';")
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='facebookdata';")
         table = cur.fetchone()
         self.assertEqual('facebookdata', table[0])
         cur.close()
         conn.close()
 
-  def test_SaveData(self):
-        conn = psycopg2.connect(
-            host="localhost",
-            database="facebookscrapeddata",
-            user="postgres",
-            password="5555"
-        )
-        SaveData()
+    def test_connect_to_database(self):
+        conn = sqlite3.connect("facebookscrapeddata.db")
+        conn = connect_to_database(conn)
+        self.assertIsNotNone(conn)
+
+    def test_save_data(self):
+        conn = sqlite3.connect("facebookscrapeddata.db")
+        save_data(conn)
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM facebookdata")
         count = cur.fetchone()
@@ -141,6 +84,8 @@ async def root():
         cur.close()
         conn.close()
 
- if __name__ == '__main__':
+if __name__ == '__main__':
   unittest.main()
-   
+  uvicorn.run(router,port=8008,host="0.0.0.0")
+  
+  

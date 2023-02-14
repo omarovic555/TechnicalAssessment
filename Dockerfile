@@ -1,8 +1,4 @@
 
-
-
-
-
 FROM python:latest
 
 # Set the working directory in the container
@@ -18,6 +14,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 EXPOSE 8008
-EXPOSE 5432
+
+
 # Specify the command to run when the container starts
-CMD ["uvicorn", "SaveScrappingResultService:router", "--host", "0.0.0.0", "--port", "8008"]
+#CMD ["uvicorn", "SaveScrappingResultService:router", "--host", "0.0.0.0", "--port", "8008"]
+CMD ["python", "SaveScrappingResultService.py"]
